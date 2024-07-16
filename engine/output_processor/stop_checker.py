@@ -4,10 +4,7 @@ from transformers import PreTrainedTokenizer
 
 from vllm.lora.request import LoRARequest
 from vllm.sampling_params import SamplingParams
-from vllm.sequence import Sequence, SequenceStatus, Logprob
-
-import logging
-logger = logging.getLogger(__name__)
+from vllm.sequence import Sequence, SequenceStatus
 
 
 class StopChecker:
@@ -29,35 +26,6 @@ class StopChecker:
             return lora_req.long_lora_max_len
         else:
             return self._max_model_len
-        
-    def _change_last_token(self, seq: Sequence) -> None:
-        # change tokens in seq logical block
-        last_block = seq.logical_token_blocks[-1]
-        num_empty_slots = last_block.get_num_empty_slots()
-        last_block.token_ids[-num_empty_slots-1] = seq.eos_token_id
-
-        # change seq.data
-        real_last_token = seq.data.output_token_ids[-1]
-        real_last_token_logprob = seq.output_logprobs[-1][real_last_token]
-        seq.data.cumulative_logprob -= real_last_token_logprob.logprob
-        seq.data.output_token_ids[-1] = seq.eos_token_id
-
-        # change seq.output_logprobs
-        seq.output_logprobs[-1] = {seq.eos_token_id: Logprob(
-            logprob=0.0,
-            rank=1,
-            decoded_token=""
-        )}
-
-    def maybe_stop_sequence_for_eos(self, seq: Sequence, new_char_count: int,
-                            sampling_params: SamplingParams) -> None:
-        this_status = seq.status
-        self.maybe_stop_sequence(seq, new_char_count, sampling_params)
-        if this_status is SequenceStatus.RUNNING and seq.is_finished():
-            if seq.get_last_token_id() != seq.eos_token_id:
-                self._change_last_token(seq)
-            setattr(seq, 'real_stop_status', seq.status)
-            setattr(seq, 'status', SequenceStatus.RUNNING)
 
     def maybe_stop_sequence(
         self,

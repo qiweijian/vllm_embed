@@ -444,7 +444,6 @@ class CompletionResponse(OpenAIBaseModel):
     model: str
     choices: List[CompletionResponseChoice]
     usage: UsageInfo
-    uncertainty: Optional[Dict[str, float]] = None
 
 
 class CompletionResponseStreamChoice(OpenAIBaseModel):
@@ -505,7 +504,6 @@ class ChatCompletionResponse(OpenAIBaseModel):
     model: str
     choices: List[ChatCompletionResponseChoice]
     usage: UsageInfo
-    uncertainty: Optional[Dict[str, float]] = None
 
 
 class DeltaMessage(OpenAIBaseModel):

@@ -5,17 +5,6 @@ from typing import Any, Dict, Optional
 import numpy as np
 import torch
 
-from dataclasses import dataclass
-from torch import Tensor
-@dataclass
-class HiddenStatesWithEmbedding:
-    last_hidden_states: Tensor
-    embedding: Tensor
-
-@dataclass
-class LogitsWithEmbedding:
-    logits: Tensor
-    embedding: Tensor
 
 def set_random_seed(seed: int) -> None:
     random.seed(seed)

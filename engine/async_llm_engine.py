@@ -396,7 +396,6 @@ class AsyncLLMEngine:
             start_engine_loop=start_engine_loop,
             usage_context=usage_context,
         )
-        setattr(engine.engine, "eigen_alpha", engine_args.eigen_alpha)
         return engine
 
     @property

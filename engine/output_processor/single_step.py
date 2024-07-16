@@ -70,38 +70,8 @@ class SingleStepOutputProcessor(SequenceGroupOutputProcessor):
                 seq_group.prompt_logprobs = [None]
             seq_group.prompt_logprobs.extend(prompt_logprobs)
 
-    def _add_energy_score(self, seq: Sequence, sample: SequenceOutput):
-        if not hasattr(seq, 'energy_score') and hasattr(sample, 'energy_score'):
-            seq.energy_score = [sample.energy_score]
-        elif hasattr(seq, 'energy_score') and hasattr(sample, 'energy_score'):
-            seq.energy_score.append(sample.energy_score)
-        else:
-            raise ValueError("Energy score is not available in the sample.")
-        #     child.energy_score = [child_sample.energy_score]
-        # elif hasattr(child, 'energy_score') and hasattr(child_sample, 'energy_score'):
-        #     child.energy_score.append(child_sample.energy_score)
-
     def _process_sequence_group_outputs(self, seq_group: SequenceGroup,
                                         outputs: SequenceGroupOutput) -> None:
-        # remove the actual ended samples
-        parent_id_to_sampling_indices = {
-            seq_output.parent_seq_id: i for i, seq_output in enumerate(outputs.samples)
-        }
-        samples_to_remove = []
-        for s_id, seq in seq_group.seqs_dict.items():
-            if seq.status is SequenceStatus.RUNNING and hasattr(seq, 'real_stop_status'):
-                seq.status = seq.real_stop_status
-                delattr(seq, 'real_stop_status')
-                self.scheduler.free_seq(seq)
-                # get the eos embedding from sampling output and terminate this
-                sample_index = parent_id_to_sampling_indices[seq.seq_id]
-                # logger.info(outputs.samples[sample_index].)
-                if not hasattr(outputs.samples[sample_index], "eos_embedding"):
-                    logger.info(f"seq {s_id} input: {seq.get_output_token_ids()[-10:]}")
-                setattr(seq, 'eos_embedding', outputs.samples[sample_index].eos_embedding)
-                samples_to_remove.append(sample_index)
-        outputs.samples = [so for i, so in enumerate(outputs.samples) if i not in samples_to_remove]
-                
         # Process samples
         samples = outputs.samples
         parent_seqs = seq_group.get_seqs(status=SequenceStatus.RUNNING)
@@ -133,7 +103,6 @@ class SingleStepOutputProcessor(SequenceGroupOutputProcessor):
                 child = parent.fork(new_child_seq_id)
                 child.append_token_id(child_sample.output_token,
                                       child_sample.logprobs)
-                self._add_energy_score(child, child_sample)
                 child_seqs.append((child, parent))
             # Continue the parent sequence for the last child sample.
             # We reuse the parent sequence here to reduce redundant memory
@@ -141,7 +110,6 @@ class SingleStepOutputProcessor(SequenceGroupOutputProcessor):
             last_child_sample = child_samples[-1]
             parent.append_token_id(last_child_sample.output_token,
                                    last_child_sample.logprobs)
-            self._add_energy_score(parent, last_child_sample)
             child_seqs.append((parent, parent))
 
         for seq, _ in child_seqs:
@@ -150,8 +118,12 @@ class SingleStepOutputProcessor(SequenceGroupOutputProcessor):
                     seq, seq_group.sampling_params)
             else:
                 new_char_count = 0
-            self.stop_checker.maybe_stop_sequence_for_eos(seq, new_char_count,
-                                                  seq_group.sampling_params)
+            self.stop_checker.maybe_stop_sequence(
+                seq,
+                new_char_count,
+                seq_group.sampling_params,
+                lora_req=seq_group.lora_request,
+            )
 
         # Non-beam search case
         if not seq_group.sampling_params.use_beam_search:

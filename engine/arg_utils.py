@@ -92,10 +92,6 @@ class EngineArgs:
     ngram_prompt_lookup_max: Optional[int] = None
     ngram_prompt_lookup_min: Optional[int] = None
 
-    # selected_intermediate_layer to get Hidden States
-    selected_intermediate_layer: Optional[int]=None
-    eigen_alpha: Optional[float] = None
-
     def __post_init__(self):
         if self.tokenizer is None:
             self.tokenizer = self.model
@@ -547,18 +543,6 @@ class EngineArgs:
             "will also be used in `model_name` tag content of "
             "prometheus metrics, if multiple names provided, metrics"
             "tag will take the first one.")
-        
-        parser.add_argument(
-            "--selected-intermediate-layer",
-            type=int,
-            default=None,
-            help="The intermediate layer to get hidden states. ")
-        
-        parser.add_argument(
-            "--eigen-alpha",
-            type=float,
-            default=None,
-            help="The alpha value for eigen score uncertainty estimation.")
 
         return parser
 
@@ -580,8 +564,7 @@ class EngineArgs:
             self.quantization_param_path, self.enforce_eager,
             self.max_context_len_to_capture, self.max_seq_len_to_capture,
             self.max_logprobs, self.disable_sliding_window,
-            self.skip_tokenizer_init, self.served_model_name,
-            self.selected_intermediate_layer)
+            self.skip_tokenizer_init, self.served_model_name)
         cache_config = CacheConfig(self.block_size,
                                    self.gpu_memory_utilization,
                                    self.swap_space, self.kv_cache_dtype,

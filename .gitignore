@@ -1,0 +1,34 @@
+# Ignore Python bytecode files
+__pycache__/
+*.py[cod]
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore shared object files
+*.so
+
+# Ignore compiled files and build directories
+build/
+dist/
+*.egg-info/
+*.eggs/
+
+# Ignore virtual environments
+venv/
+.env/
+ENV/
+env.bak/
+env/
+
+# Ignore any other specific file extensions related to your project
+*.o
+*.a
+*.out
+*.class
+
+# Ignore MacOS specific files
+.DS_Store
+
+# Ignore Windows specific files
+Thumbs.db

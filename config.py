@@ -103,7 +103,6 @@ class ModelConfig:
         disable_sliding_window: bool = False,
         skip_tokenizer_init: bool = False,
         served_model_name: Optional[Union[str, List[str]]] = None,
-        selected_intermediate_layer: Optional[int] = None,
     ) -> None:
         self.model = model
         self.tokenizer = tokenizer
@@ -141,7 +140,6 @@ class ModelConfig:
         if not self.skip_tokenizer_init:
             self._verify_tokenizer_mode()
         self._verify_embedding_mode()
-        self.hf_config.selected_intermediate_layer = selected_intermediate_layer
         self._verify_quantization()
         self._verify_cuda_graph()
 

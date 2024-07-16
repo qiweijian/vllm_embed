@@ -405,19 +405,12 @@ class OpenAIServingChat(OpenAIServing):
             completion_tokens=num_generated_tokens,
             total_tokens=num_prompt_tokens + num_generated_tokens,
         )
-        if hasattr(final_res, "uncertainty"):
-            uncertainty = final_res.uncertainty
-            uncertainty = {
-                k: v for k, v in uncertainty.items() if v is not None
-            }
-        else:
-            uncertainty = None
         response = ChatCompletionResponse(
             id=request_id,
             created=created_time,
             model=model_name,
             choices=choices,
             usage=usage,
-            uncertainty=uncertainty,
         )
+
         return response

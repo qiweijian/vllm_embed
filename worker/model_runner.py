@@ -742,10 +742,7 @@ class ModelRunner:
             logits=logits,
             sampling_metadata=sampling_metadata,
         )
-        output, eos_indices = output
-        if eos_indices:
-            for e_i in eos_indices:
-                assert input_tokens[e_i] == self.model.config.eos_token_id
+
         return output
 
     @torch.inference_mode()

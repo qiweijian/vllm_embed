@@ -20,8 +20,6 @@ from vllm.model_executor.guided_decoding import (
 from vllm.outputs import RequestOutput
 from vllm.utils import merge_async_iterators, random_uuid
 
-import json
-import numpy as np
 logger = init_logger(__name__)
 
 TypeTokenIDs = List[int]
@@ -345,24 +343,11 @@ class OpenAIServingCompletion(OpenAIServing):
             completion_tokens=num_generated_tokens,
             total_tokens=num_prompt_tokens + num_generated_tokens,
         )
-        if hasattr(final_res, "uncertainty"):
-            uncertainty = final_res.uncertainty
-            uncertainty_dict = {}
-            for k, v in uncertainty.items():
-                if v is not None and not np.isnan(v) and not np.isinf(v):
-                    # logger.info(f"{k}: {v} {type(v)}")
-                    uncertainty_dict[k] = float(v)
-                # else:
-                    # logger.error(f"{k}: {v} {type(v)}")
-        else:
-            uncertainty = None
-        # logger.info(choices)
-        # logger.info({k: f"{v:.2f}" for k, v in uncertainty_dict.items()})
+
         return CompletionResponse(
             id=request_id,
             created=created_time,
             model=model_name,
             choices=choices,
             usage=usage,
-            uncertainty=uncertainty_dict,
         )

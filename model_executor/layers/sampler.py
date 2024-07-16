@@ -13,7 +13,7 @@ from vllm.sampling_params import SamplingType
 from vllm.sequence import (CompletionSequenceGroupOutput, Logprob,
                            PromptLogprobs, SampleLogprobs, SamplerOutput,
                            SequenceOutput)
-from vllm.model_executor.utils import LogitsWithEmbedding
+
 # (num_token_ids, num_parent_ids) per sequence group.
 SampleResultType = List[Tuple[List[int], List[int]]]
 
@@ -49,22 +49,16 @@ class Sampler(nn.Module):
 
     def forward(
         self,
-        logits: LogitsWithEmbedding,
+        logits: torch.Tensor,
         sampling_metadata: SamplingMetadata,
-        eos_token_id: int = None,
     ) -> Optional[SamplerOutput]:
         """
         Args:
             logits: (num_tokens, vocab_size).
             sampling_metadata: Metadata for sampling.
         """
-        selected_embedding = None
-        if isinstance(logits, LogitsWithEmbedding):
-            selected_embedding = logits.embedding
-            logits = logits.logits
         assert logits is not None
         _, vocab_size = logits.shape
-        energy_score = torch.logsumexp(logits, dim=-1).cpu()
 
         logits = _apply_min_tokens_penalty(logits, sampling_metadata)
 
@@ -117,28 +111,11 @@ class Sampler(nn.Module):
         # Get the logprobs query results.
         prompt_logprobs, sample_logprobs = _get_logprobs(
             logprobs, sampling_metadata, sample_results)
-        sampler_output =  _build_sampler_output(sample_results,
+        return _build_sampler_output(sample_results,
                                      sampling_metadata,
                                      prompt_logprobs,
                                      sample_logprobs,
                                      on_device_tensors=on_device_tensors)
-        eos_indices = []
-        if eos_token_id:
-            i_embedding = 0
-            for i_output, sequence_g_output in enumerate(sampler_output.outputs):
-                selected_seq_group = sampling_metadata.seq_groups[i_output]
-                for i_s in range(len(sequence_g_output.samples)):
-                    so = sequence_g_output.samples[i_s]
-                    if selected_seq_group.is_prompt:
-                        setattr(so, "energy_score", energy_score[i_embedding].item())
-                        continue
-                    sd = selected_seq_group.seq_data[selected_seq_group.seq_ids[i_s]]
-                    setattr(so, "energy_score", energy_score[i_embedding].item())
-                    if sd.output_token_ids and sd.output_token_ids[-1] == eos_token_id:
-                        eos_indices.append(i_embedding)
-                        setattr(so, "eos_embedding", selected_embedding[i_embedding].cpu())
-                    i_embedding += 1
-        return sampler_output, eos_indices
 
     @property
     def _should_modify_greedy_probs_inplace(self) -> bool:
@@ -944,7 +921,6 @@ def _get_sampled_logprob_if_needed(
                     top_id: (top_prob, rank)
                     for top_id, top_prob, rank in zip(top_ids, top_probs,
                                                       top_ranks)
-                    if top_prob != float('-inf') # to save memory
                 })
 
             sampled_logprobs.append({

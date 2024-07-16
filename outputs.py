@@ -140,7 +140,7 @@ class RequestOutput:
         finished = seq_group.is_finished()
         finished_time = time.time() if finished else None
         seq_group.set_finished_time(finished_time)
-        r_o = cls(seq_group.request_id,
+        return cls(seq_group.request_id,
                    prompt,
                    prompt_token_ids,
                    prompt_logprobs,
@@ -148,12 +148,6 @@ class RequestOutput:
                    finished,
                    seq_group.metrics,
                    lora_request=seq_group.lora_request)
-        if finished:
-            # Add the EOS embeddings to the request output.
-            for out, seq in zip(r_o.outputs, top_n_seqs):
-                setattr(out, 'eos_embedding', getattr(seq, 'eos_embedding', None))
-                setattr(out, 'energy_score', getattr(seq, 'energy_score', None))
-        return r_o
 
     def __repr__(self) -> str:
         return (f"RequestOutput(request_id={self.request_id}, "

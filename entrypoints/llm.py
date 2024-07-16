@@ -117,8 +117,6 @@ class LLM:
         max_context_len_to_capture: Optional[int] = None,
         max_seq_len_to_capture: int = 8192,
         disable_custom_all_reduce: bool = False,
-        selected_intermediate_layer: Optional[int] = None,
-        eigen_alpha: Optional[float] = None,
         **kwargs,
     ) -> None:
         if "disable_log_stats" not in kwargs:
@@ -141,8 +139,6 @@ class LLM:
             max_context_len_to_capture=max_context_len_to_capture,
             max_seq_len_to_capture=max_seq_len_to_capture,
             disable_custom_all_reduce=disable_custom_all_reduce,
-            selected_intermediate_layer=selected_intermediate_layer,
-            eigen_alpha=eigen_alpha,
             **kwargs,
         )
         self.llm_engine = LLMEngine.from_engine_args(

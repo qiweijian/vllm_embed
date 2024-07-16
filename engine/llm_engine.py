@@ -24,7 +24,7 @@ from vllm.executor.ray_utils import initialize_ray_cluster
 from vllm.inputs import LLMInputs, PromptInputs
 from vllm.logger import init_logger
 from vllm.lora.request import LoRARequest
-from vllm.outputs import (EmbeddingRequestOutput, RequestOutput, CompletionOutput,
+from vllm.outputs import (EmbeddingRequestOutput, RequestOutput,
                           RequestOutputFactory)
 from vllm.pooling_params import PoolingParams
 from vllm.sampling_params import SamplingParams
@@ -42,10 +42,6 @@ from vllm.utils import Counter
 logger = init_logger(__name__)
 _LOCAL_LOGGING_INTERVAL_SEC = 5
 
-import torch
-import numpy as np
-from typing import Dict
-from vllm.sequence import Logprob
 
 def _load_generation_config_dict(model_config: ModelConfig):
     try:
@@ -366,7 +362,6 @@ class LLMEngine:
             log_stats=not engine_args.disable_log_stats,
             usage_context=usage_context,
         )
-        setattr(engine, "eigen_alpha", engine_args.eigen_alpha)
         return engine
 
     def __reduce__(self):
@@ -710,56 +705,7 @@ class LLMEngine:
         for seq_group in ignored_seq_groups:
             request_output = RequestOutputFactory.create(seq_group)
             request_outputs.append(request_output)
-
-        # compute eigen_score
-        for request_output in request_outputs:
-            if request_output.finished:
-                self.compute_uncertainty(request_output)
         return request_outputs
-    
-    def compute_uncertainty(self, request_output: RequestOutput):
-        for cpl_output in request_output.outputs:
-            self._compute_single_uncertainty(cpl_output)
-        uncertainty_dict = {}
-        if len(request_output.outputs) > 1:
-            valid_embeddings = [getattr(cpl, 'eos_embedding', None) for cpl in request_output.outputs if cpl.text.strip()] # remove empty outputs
-            if valid_embeddings:
-                eos_embeddings = torch.stack(valid_embeddings)
-                uncertainty_dict['eigen_score'] = self._compute_eigen_score(eos_embeddings)
-            all_perplexities = [cpl.uncertainty["perplexity"] for cpl in request_output.outputs if "perplexity" in cpl.uncertainty]
-            # print("all_perplexities", all_perplexities)
-            if all_perplexities:
-                uncertainty_dict['ln_entropy'] = np.mean(all_perplexities)
-        else:
-            uncertainty_dict['perplexity'] = request_output.outputs[0].uncertainty.get('perplexity', 1e3)
-            uncertainty_dict['energy_score'] = request_output.outputs[0].uncertainty.get('energy_score', 0)
-        setattr(request_output, 'uncertainty', uncertainty_dict)
-
-    def _compute_eigen_score(self, z: torch.tensor):
-        z = z.to(torch.float32)
-        k, d = z.shape
-        j_d = torch.eye(d) - (1/d) * torch.ones(d, d)
-        j_d = j_d.to(z.device)
-        sigma = torch.einsum('ij,jk,kl->il', z, j_d, z.t())
-        return ((1/k) * torch.logdet(sigma + self.eigen_alpha * torch.eye(k, device=sigma.device))).item()
-    
-    def compute_perplexity(self, log_probs: List[Dict[int, Logprob]]):
-        first_token_lp = [
-            list(token_lp.values())[0].logprob
-            for token_lp in log_probs[:-1] # remove the eos
-        ]
-        return np.exp(-np.mean(first_token_lp))
-
-    def _compute_single_uncertainty(self, cpl_output: CompletionOutput):
-        # logger.info(cpl_output.logprobs)
-        uncertainty_dict = {}
-        if len(cpl_output.logprobs) > 1:
-            perplexity = self.compute_perplexity(cpl_output.logprobs)
-            uncertainty_dict['perplexity'] = perplexity
-        if cpl_output.energy_score:
-            # print('energy', cpl_output.energy_score)
-            uncertainty_dict['energy_score'] = np.mean(cpl_output.energy_score)
-        setattr(cpl_output, 'uncertainty', uncertainty_dict)
 
     def step(self) -> List[Union[RequestOutput, EmbeddingRequestOutput]]:
         """Performs one decoding iteration and returns newly generated results.
